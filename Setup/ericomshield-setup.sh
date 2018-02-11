@@ -256,7 +256,7 @@ function accept_license() {
 function install_docker() {
 
      if [ "$(sudo docker version | grep -c $DOCKER_VERSION)" -le 1 ]; then
-        echo "***************     Installing docker-engine"
+        log_message "***************     Installing docker-engine"
         apt-get --assume-yes -y install apt-transport-https software-properties-common python-software-properties
 
         #Docker Installation of a specific Version
@@ -266,7 +266,7 @@ function install_docker() {
         apt-get -qq update
         echo "done"
         sudo apt-cache policy docker-ce
-        echo "Installing Docker: docker-ce=$DOCKER_VERSION~ce-0~ubuntu"
+        log_message "Installing Docker: docker-ce=$DOCKER_VERSION~ce-0~ubuntu"
         sudo apt-get -y --assume-yes --allow-downgrades install docker-ce=$DOCKER_VERSION~ce-0~ubuntu
     else
         echo " ******* docker-engine $DOCKER_VERSION is already installed"
@@ -308,7 +308,7 @@ function update_sysctl() {
 function setup_dnsmasq() {
 
     if [ "$(dpkg -l | grep -w -c "dnsmasq " )" -eq 0 ]; then
-        echo "***************     Installing dnsmasq"
+        log_message "***************     Installing dnsmasq"
         apt-get --assume-yes -y install dnsmasq
     fi
 
@@ -321,7 +321,7 @@ EOF
 }
 
 function create_shield_service() {
-    echo "**************  Creating the ericomshield updater service..."
+    log_message "**************  Creating the ericomshield updater service..."
     if [ ! -f "${ES_PATH}/ericomshield-updater.service" ]; then
         # Need to download the service file only if needed and reload only if changed
         curl -s -S -o "${ES_PATH}/ericomshield-updater.service" "${ES_repo_systemd_updater_service}"
@@ -333,8 +333,8 @@ function create_shield_service() {
 }
 
 function add_aliases() {
-    if [ -f ~/.bashrc ] && [ $(grep -c 'shield_aliases' ~/.bashrc) -eq 0 ]; then
-        echo 'Adding Aliases in .bashrc'
+    if [ -f ~/.bashrc ] && [ $(grep -c 'shield-aliases' ~/.bashrc) -eq 0 ]; then
+        log_message 'Adding Aliases in .bashrc'
         echo "" >> ~/.bashrc
         echo "# EricomShield aliases" >> ~/.bashrc
         echo "if [ -f ~/.shield_aliases ]; then" >> ~/.bashrc
@@ -367,7 +367,7 @@ function prepare_yml() {
 function switch_to_multi_node
 {
       if [ $(grep -c '#      mode: global       #multi node' $ES_YML_FILE) -eq 1 ]; then
-         echo "Switching to Multi-Node (consul-server -> global)"
+         log_message "Switching to Multi-Node (consul-server -> global)"
          sed -i 's/      mode: replicated   #single node/#      mode: replicated   #single node/g'  $ES_YML_FILE
          sed -i 's/      replicas: 5        #single node/#      replicas: 5        #single node/g'  $ES_YML_FILE
          sed -i 's/#      mode: global       #multi node/      mode: global       #multi node/g'  $ES_YML_FILE
@@ -405,8 +405,7 @@ function get_shield_install_files() {
             echo "Your EricomShield System is Up to date"
             exit 0
         else
-            echo "***************     Updating EricomShield ($ES_SETUP_VER)"
-            echo "$(date): New version found:  Updating EricomShield ($ES_SETUP_VER)" >>"$LOGFILE"
+            log_message "***************  version found: Updating EricomShield ($ES_SETUP_VER)"
             UPDATE=true
             mv "$ES_VER_FILE" "$ES_VER_FILE_BAK"
             if [ $(grep -c "$UPDATE_NEED_RESTART_TXT" shield-version-new.txt) -eq 1 ]; then
@@ -414,8 +413,7 @@ function get_shield_install_files() {
             fi
         fi
     else
-        echo "***************     Installing EricomShield ($ES_SETUP_VER)..."
-        echo "$(date): Installing EricomShield ($ES_SETUP_VER)" >>"$LOGFILE"
+        log_message "***************     Installing EricomShield ($ES_SETUP_VER)..."
     fi
     mv "shield-version-new.txt" "$ES_VER_FILE"
 
@@ -515,15 +513,22 @@ function get_shield_files() {
 
        if [ ! -z $CMD_FILE ] ;  then
           if [ $CMD_FILE == $ES_cmd_setup ] && [ -f $ES_cmd_setup ]; then
-             continue
+             curl -s -S -o "shield_setup_tmp.sh" $ES_repo_setup
+             if [ "$(diff "$ES_cmd_setup" "shield_setup_tmp.sh" | wc -l)" -ge 1 ]; then
+  	        echo "New version of Shield Setup found, replacing and running new instance..."
+                $ES_cmd_setup $@
+                # now exit this old instance
+                exit 0
+	     fi
           fi
-          if [ $CMD_FILE == $ES_cmd_update ] && [ -f $ES_cmd_update ]; then
-             continue
-          fi
+	fi  
+        if [ $CMD_FILE == $ES_cmd_update ] && [ -f $ES_cmd_update ]; then
+           continue
+        fi
 
-          echo "Getting Shield Files: $REPO_FILE => $CMD_FILE"
-          curl -s -S -o "$CMD_FILE" "$REPO_FILE"
-         chmod +x "$CMD_FILE"
+        echo "Getting Shield Files: $REPO_FILE => $CMD_FILE"
+        curl -s -S -o "$CMD_FILE" "$REPO_FILE"
+        chmod +x "$CMD_FILE"
        fi
     done
 }
@@ -566,7 +571,7 @@ function set_storage_driver() {
     if [ -f /etc/docker/daemon.json ] && [ $(grep -c '"storage-driver"[[:space:]]*:[[:space:]]*"overlay2"' /etc/docker/daemon.json) -eq 1 ]; then
         echo '"storage-driver": "overlay2" in /etc/docker/daemon.json'
     else
-        echo 'Setting: "storage-driver": overlay2 in /etc/docker/daemon.json'
+        log_message 'Setting: "storage-driver": overlay2 in /etc/docker/daemon.json'
         echo '{' >/etc/docker/daemon.json.shield
         echo '  "storage-driver": "overlay2"' >>/etc/docker/daemon.json.shield
         echo '}' >>/etc/docker/daemon.json.shield
@@ -728,7 +733,7 @@ grep image "$ES_YML_FILE" >>.version
 
 if [ $SUCCESS == false ]; then
    echo "Something went wrong. Timeout was reached during installation. Please run ./status.sh and check the log file: $LOGFILE."
-   echo "$(date): Timeout was reached during the installation" >>"$LOGFILE"
+   log_message "Something went wrong. Timeout was reached during the installation"
    echo "--Timeout?" >>.version # adding failed into the version file
    exit 1
 fi
@@ -736,4 +741,4 @@ fi
 echo "***************     Success!"
 echo "***************"
 echo "***************     Ericom Shield Version: $Version is up and running"
-echo "$(date): Ericom Shield Version: $Version is up and running" >>"$LOGFILE"
+log_message  "Ericom Shield Version: $Version is up and running"
