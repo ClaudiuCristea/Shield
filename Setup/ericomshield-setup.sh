@@ -467,6 +467,8 @@ function pull_images() {
 
 #############     Getting all files from Github
 function get_shield_files() {
+
+    # Will be deprecated
     if [ ! -f "ericomshield-setup.sh" ]; then
         curl -s -S -o ericomshield-setup.sh $ES_repo_setup
         chmod +x ericomshield-setup.sh
@@ -500,6 +502,30 @@ function get_shield_files() {
     echo "Getting $ES_repo_restore_dev_sh"
     curl -s -S -o restore.sh "$ES_repo_restore_dev_sh"
     chmod +x restore.sh
+    
+    # New Commands
+    echo ${ES_repo_files[@]}
+    t=0
+    ## now loop through the repo/cmd arrays
+    for REPO_FILE in "${ES_repo_files[@]}"
+    do
+       CMD_FILE="${ES_cmd_files[t]}"
+       let t=t+1
+       echo "$REPO_FILE => $CMD_FILE"
+
+       if [ ! -z $CMD_FILE ] ;  then
+          if [ $CMD_FILE == $ES_cmd_setup ] && [ -f $ES_cmd_setup ]; then
+             continue
+          fi
+          if [ $CMD_FILE == $ES_cmd_update ] && [ -f $ES_cmd_update ]; then
+             continue
+          fi
+
+          echo "Getting Shield Files: $REPO_FILE => $CMD_FILE"
+          curl -s -S -o "$CMD_FILE" "$REPO_FILE"
+         chmod +x "$CMD_FILE"
+       fi
+    done
 }
 
 function count_running_docker_services() {
