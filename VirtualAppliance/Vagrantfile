@@ -113,7 +113,7 @@ vb.customize [ "modifyvm", :id, "--uartmode1", "disconnected" ]
     cd ericomshield
     wget -q "https://raw.githubusercontent.com/EricomSoftwareLtd/Shield/master/Setup/ericomshield-setup.sh"
     chmod +x ericomshield-setup.sh
-    ./ericomshield-setup.sh -pocket -approve-eula -staging
+    sudo ./ericomshield-setup.sh -force -quickeval 
     rm /usr/local/ericomshield/.esstaging
     sudo  adduser --gecos "" ericom
     sudo  echo ericom:ericom | chpasswd
